@@ -1,5 +1,5 @@
 ---
-// Coffee Calculator — single-page Astro app
+import { version } from "../../package.json";
 ---
 
 <!DOCTYPE html>
@@ -16,13 +16,19 @@
       <div class="field">
         <label for="preparation">Tipo de preparación</label>
         <select id="preparation">
-          <option value="french-press">Prensa Francesa</option>
+          <option value="personalizado">Personalizado</option>
+          <option value="frenchPress">Prensa Francesa</option>
+          <option value="pourOver">Pour Over (V60 / Chemex)</option>
+          <option value="drip">Cafetera Americana</option>
+          <option value="aeropress">Aeropress</option>
+          <option value="moka">Moka Pot</option>
+          <option value="espresso">Espresso</option>
         </select>
       </div>
 
       <div class="field">
         <label for="ratio">Ratio (agua:café)</label>
-        <input type="number" id="ratio" min="1" step="1" value="16" />
+        <input type="number" id="ratio" min="0" step="1" placeholder="Mililitros de agua por cada gramo de café" />
       </div>
 
       <div class="field">
@@ -35,51 +41,32 @@
 
       <div class="field">
         <label for="value">Valor</label>
-        <input type="number" id="value" min="0" step="0.1" placeholder="0" />
+        <input type="number" id="value" min="0" step="0.1" />
       </div>
 
-      <button id="calculate">Calcular</button>
+      <div class="field">
+        <label for="brewTime">Tiempo de extracción (MM:SS)</label>
+        <input type="text" id="brewTime" placeholder="MM:SS" maxlength="5" value="00:00" />
+      </div>
+
+      <button id="calculate" class="calc-btn">Calcular</button>
 
       <p id="result" class="result"></p>
+
+      <div id="timerSection" class="timer-section hidden">
+        <div id="timerDisplay" class="timer-display">00:00</div>
+        <button id="timerBtn" class="timer-btn">Iniciar</button>
+      </div>
+
+      <footer class="footer">
+        <span>v{version}</span>
+        <span>Ratios de referencia: <a href="https://sca.coffee" target="_blank" rel="noopener">Specialty Coffee Association (SCA)</a></span>
+      </footer>
     </div>
 
     <script>
-      const ratioInput = document.getElementById("ratio");
-      const paramSelect = document.getElementById("param");
-      const valueInput = document.getElementById("value");
-      const result = document.getElementById("result");
-
-      function clampPositive(v) {
-        return v < 0 ? 0 : v;
-      }
-
-      [ratioInput, valueInput].forEach((input) => {
-        input.addEventListener("input", () => {
-          const val = parseFloat(input.value);
-          if (input.value !== "" && (isNaN(val) || val < 0)) {
-            input.value = 0;
-          }
-        });
-      });
-
-      document.getElementById("calculate").addEventListener("click", () => {
-        const ratio = parseFloat(ratioInput.value) || 16;
-        const value = parseFloat(valueInput.value);
-        const param = paramSelect.value;
-
-        if (!value) {
-          result.textContent = "Ingresa un valor para calcular.";
-          return;
-        }
-
-        if (param === "grams") {
-          const ml = clampPositive(value * ratio);
-          result.textContent = `${value}g café → ${ml.toFixed(1)}ml agua (1:${ratio})`;
-        } else {
-          const grams = clampPositive(value / ratio);
-          result.textContent = `${value}ml agua → ${grams.toFixed(1)}g café (1:${ratio})`;
-        }
-      });
+      import { init_app } from "../app.js";
+      init_app();
     </script>
 
     <style>
@@ -92,6 +79,7 @@
         --accent: #a0785a;
         --accent-hover: #b89170;
         --radius: 12px;
+        --alarm: #e74c3c;
       }
 
       * {
@@ -141,7 +129,7 @@
       }
 
       select,
-      input[type="number"] {
+      input:where([type="number"], [type="text"]) {
         background: var(--bg);
         color: var(--text);
         border: 1px solid var(--border);
@@ -153,7 +141,7 @@
       }
 
       select:focus,
-      input[type="number"]:focus {
+      input:where([type="number"], [type="text"]):focus {
         border-color: var(--accent);
       }
 
@@ -162,7 +150,7 @@
         opacity: 1;
       }
 
-      button {
+      .calc-btn {
         background: var(--accent);
         color: #fff;
         border: none;
@@ -174,7 +162,7 @@
         transition: background 0.2s;
       }
 
-      button:hover {
+      .calc-btn:hover {
         background: var(--accent-hover);
       }
 
@@ -183,6 +171,77 @@
         font-size: 0.95rem;
         color: var(--accent);
         min-height: 1.5em;
+      }
+
+      .footer {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.1rem;
+        font-size: 0.65rem;
+        color: var(--muted);
+      }
+      .footer a {
+        color: var(--muted);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+      .footer a:hover {
+        color: var(--accent);
+      }
+
+      /* ---------- timer ---------- */
+      .timer-section.hidden {
+        display: none;
+      }
+
+      .timer-section {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .timer-display {
+        font-size: 3rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 0.1em;
+        color: var(--text);
+        transition: color 0.15s;
+      }
+
+      .timer-display.alarm {
+        color: var(--alarm);
+        animation: pulse 0.6s ease-in-out infinite alternate;
+      }
+
+      @keyframes pulse {
+        0% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        100% {
+          opacity: 0.3;
+          transform: scale(1.08);
+        }
+      }
+
+      .timer-btn {
+        background: transparent;
+        color: var(--accent);
+        border: 2px solid var(--accent);
+        border-radius: var(--radius);
+        padding: 0.5rem 2rem;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s, color 0.2s;
+      }
+
+      .timer-btn:hover {
+        background: var(--accent);
+        color: #fff;
       }
     </style>
   </body>
